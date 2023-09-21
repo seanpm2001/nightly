@@ -76,6 +76,16 @@ if $os in [$USE_UBUNTU, 'macos-latest'] {
             $env.CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER = 'aarch64-linux-gnu-gcc'
             cargo-build-nu $flags
         }
+        'aarch64-unknown-linux-musl' => {
+            let pwd = ($env.PWD)
+            cd ~
+            curl -LO https://musl.cc/aarch64-linux-musl-cross.tgz
+            tar -xf aarch64-linux-musl-cross.tgz
+            cd $pwd
+            $env.PATH = $'($env.HOME)/aarch64-linux-musl-cross/bin:$PATH'
+            $env.CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER = 'aarch64-linux-musl-gcc'
+            cargo-build-nu $flags
+        }
         'riscv64gc-unknown-linux-gnu' => {
             sudo apt-get install gcc-riscv64-linux-gnu -y
             $env.CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER = 'riscv64-linux-gnu-gcc'
