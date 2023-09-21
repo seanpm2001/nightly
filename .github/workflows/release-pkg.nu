@@ -82,7 +82,7 @@ if $os in [$USE_UBUNTU, 'macos-latest'] {
             curl -LO https://musl.cc/aarch64-linux-musl-cross.tgz
             tar -xf aarch64-linux-musl-cross.tgz
             cd $pwd
-            $env.PATH = $'($env.HOME)/aarch64-linux-musl-cross/bin:$PATH'
+            $env.PATH = ($env.PATH | split row (char esep) | prepend $'($env.HOME)/aarch64-linux-musl-cross/bin')
             $env.CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER = 'aarch64-linux-musl-gcc'
             cargo-build-nu $flags
         }
