@@ -2,12 +2,12 @@
 # REF:
 #   1. https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstrategymatrixinclude
 #
-name: Create Release Draft
+name: Test Creating Release Draft
 
 on:
   push:
     branches:
-    - release/testing
+    - release/loongarch64
     tags:
     - 'v*'
 
@@ -23,54 +23,58 @@ jobs:
       fail-fast: false
       matrix:
         target:
-        - aarch64-apple-darwin
-        - x86_64-apple-darwin
-        - x86_64-pc-windows-msvc
-        - aarch64-pc-windows-msvc
-        - x86_64-unknown-linux-gnu
-        - x86_64-unknown-linux-musl
-        - aarch64-unknown-linux-gnu
-        - armv7-unknown-linux-gnueabihf
-        - riscv64gc-unknown-linux-gnu
+        # - aarch64-apple-darwin
+        # - x86_64-apple-darwin
+        # - x86_64-pc-windows-msvc
+        # - aarch64-pc-windows-msvc
+        # - x86_64-unknown-linux-gnu
+        # - x86_64-unknown-linux-musl
+        # - aarch64-unknown-linux-gnu
+        # - armv7-unknown-linux-gnueabihf
+        # - riscv64gc-unknown-linux-gnu
+        - loongarch64-unknown-linux-gnu
         extra: ['bin']
         include:
-        - target: aarch64-apple-darwin
-          os: macos-latest
-          target_rustflags: ''
-        - target: x86_64-apple-darwin
-          os: macos-latest
-          target_rustflags: ''
-        - target: x86_64-pc-windows-msvc
-          extra: 'bin'
-          os: windows-latest
-          target_rustflags: ''
-        - target: x86_64-pc-windows-msvc
-          extra: msi
-          os: windows-latest
-          target_rustflags: ''
-        - target: aarch64-pc-windows-msvc
-          extra: 'bin'
-          os: windows-latest
-          target_rustflags: ''
-        - target: aarch64-pc-windows-msvc
-          extra: msi
-          os: windows-latest
-          target_rustflags: ''
-        - target: x86_64-unknown-linux-gnu
+        # - target: aarch64-apple-darwin
+        #   os: macos-latest
+        #   target_rustflags: ''
+        # - target: x86_64-apple-darwin
+        #   os: macos-latest
+        #   target_rustflags: ''
+        # - target: x86_64-pc-windows-msvc
+        #   extra: 'bin'
+        #   os: windows-latest
+        #   target_rustflags: ''
+        # - target: x86_64-pc-windows-msvc
+        #   extra: msi
+        #   os: windows-latest
+        #   target_rustflags: ''
+        # - target: aarch64-pc-windows-msvc
+        #   extra: 'bin'
+        #   os: windows-latest
+        #   target_rustflags: ''
+        # - target: aarch64-pc-windows-msvc
+        #   extra: msi
+        #   os: windows-latest
+        #   target_rustflags: ''
+        # - target: x86_64-unknown-linux-gnu
+        #   os: ubuntu-20.04
+        #   target_rustflags: ''
+        # - target: x86_64-unknown-linux-musl
+        #   os: ubuntu-20.04
+        #   target_rustflags: ''
+        # - target: aarch64-unknown-linux-gnu
+        #   os: ubuntu-20.04
+        #   target_rustflags: ''
+        # - target: armv7-unknown-linux-gnueabihf
+        #   os: ubuntu-20.04
+        #   target_rustflags: ''
+        # - target: riscv64gc-unknown-linux-gnu
+        #   os: ubuntu-20.04
+        #   target_rustflags: ''
+        - target: loongarch64-unknown-linux-gnu
           os: ubuntu-20.04
           target_rustflags: ''
-        - target: x86_64-unknown-linux-musl
-          os: ubuntu-20.04
-          target_rustflags: ''
-        - target: aarch64-unknown-linux-gnu
-          os: ubuntu-20.04
-          target_rustflags: ''
-        - target: armv7-unknown-linux-gnueabihf
-          os: ubuntu-20.04
-          target_rustflags: '--exclude=nu-cmd-dataframe'
-        - target: riscv64gc-unknown-linux-gnu
-          os: ubuntu-20.04
-          target_rustflags: '--exclude=nu-cmd-dataframe'
 
     runs-on: ${{matrix.os}}
 
@@ -119,44 +123,48 @@ jobs:
       fail-fast: false
       matrix:
         target:
-        - aarch64-apple-darwin
-        - x86_64-apple-darwin
-        - x86_64-pc-windows-msvc
-        - aarch64-pc-windows-msvc
-        - x86_64-unknown-linux-gnu
-        - x86_64-unknown-linux-musl
-        - aarch64-unknown-linux-gnu
+        # - aarch64-apple-darwin
+        # - x86_64-apple-darwin
+        # - x86_64-pc-windows-msvc
+        # - aarch64-pc-windows-msvc
+        # - x86_64-unknown-linux-gnu
+        # - x86_64-unknown-linux-musl
+        # - aarch64-unknown-linux-gnu
+        - loongarch64-unknown-linux-gnu
         extra: ['bin']
         include:
-        - target: aarch64-apple-darwin
-          os: macos-latest
-          target_rustflags: '--features=dataframe,extra'
-        - target: x86_64-apple-darwin
-          os: macos-latest
-          target_rustflags: '--features=dataframe,extra'
-        - target: x86_64-pc-windows-msvc
-          extra: 'bin'
-          os: windows-latest
-          target_rustflags: '--features=dataframe,extra'
-        - target: x86_64-pc-windows-msvc
-          extra: msi
-          os: windows-latest
-          target_rustflags: '--features=dataframe,extra'
-        - target: aarch64-pc-windows-msvc
-          extra: 'bin'
-          os: windows-latest
-          target_rustflags: '--features=dataframe,extra'
-        - target: aarch64-pc-windows-msvc
-          extra: msi
-          os: windows-latest
-          target_rustflags: '--features=dataframe,extra'
-        - target: x86_64-unknown-linux-gnu
-          os: ubuntu-20.04
-          target_rustflags: '--features=dataframe,extra'
-        - target: x86_64-unknown-linux-musl
-          os: ubuntu-20.04
-          target_rustflags: '--features=dataframe,extra'
-        - target: aarch64-unknown-linux-gnu
+        # - target: aarch64-apple-darwin
+        #   os: macos-latest
+        #   target_rustflags: '--features=dataframe,extra'
+        # - target: x86_64-apple-darwin
+        #   os: macos-latest
+        #   target_rustflags: '--features=dataframe,extra'
+        # - target: x86_64-pc-windows-msvc
+        #   extra: 'bin'
+        #   os: windows-latest
+        #   target_rustflags: '--features=dataframe,extra'
+        # - target: x86_64-pc-windows-msvc
+        #   extra: msi
+        #   os: windows-latest
+        #   target_rustflags: '--features=dataframe,extra'
+        # - target: aarch64-pc-windows-msvc
+        #   extra: 'bin'
+        #   os: windows-latest
+        #   target_rustflags: '--features=dataframe,extra'
+        # - target: aarch64-pc-windows-msvc
+        #   extra: msi
+        #   os: windows-latest
+        #   target_rustflags: '--features=dataframe,extra'
+        # - target: x86_64-unknown-linux-gnu
+        #   os: ubuntu-20.04
+        #   target_rustflags: '--features=dataframe,extra'
+        # - target: x86_64-unknown-linux-musl
+        #   os: ubuntu-20.04
+        #   target_rustflags: '--features=dataframe,extra'
+        # - target: aarch64-unknown-linux-gnu
+        #   os: ubuntu-20.04
+        #   target_rustflags: '--features=dataframe,extra'
+        - target: loongarch64-unknown-linux-gnu
           os: ubuntu-20.04
           target_rustflags: '--features=dataframe,extra'
 

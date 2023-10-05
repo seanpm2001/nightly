@@ -96,6 +96,13 @@ if $os in [$USE_UBUNTU, 'macos-latest'] {
             $env.CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER = 'riscv64-linux-gnu-gcc'
             cargo-build-nu $flags
         }
+        'loongarch64-unknown-linux-gnu' => {
+            # https://github.com/rust-lang/cargo/pull/12436
+            # https://github.com/simd-everywhere/simde/blob/1594d7ccf9f0f05b98816731af1b39efbcbdb873/.github/workflows/ci.yml#L646
+            sudo apt-get install gcc-riscv64-linux-gnu -y
+            $env.CARGO_TARGET_LOONGARCH64_UNKNOWN_LINUX_GNUN_LINKER = 'loongarch64-unknown-linux-gnu-gcc'
+            cargo-build-nu $flags
+        }
         'armv7-unknown-linux-gnueabihf' => {
             sudo apt-get install pkg-config gcc-arm-linux-gnueabihf -y
             $env.CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER = 'arm-linux-gnueabihf-gcc'
