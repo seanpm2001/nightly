@@ -160,7 +160,7 @@ if ($ver | str trim | is-empty) {
 # Create a release archive and send it to output for the following steps
 # ----------------------------------------------------------------------------
 cd $dist; print $'(char nl)Creating release archive...'; hr-line
-if $os in [$USE_UBUNTU, 'macos-latest'] {
+if $os in [$USE_UBUNTU, 'macos-latest', 'ubuntu-latest'] {
 
     let files = (ls | get name)
     let dest = if $env.RELEASE_TYPE == 'full' { $'($bin)-($version)-($FULL_NAME)' } else { $'($bin)-($version)-($target)' }
