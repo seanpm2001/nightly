@@ -24,7 +24,7 @@ impl Command for SubCommand {
             .required(
                 "separator",
                 SyntaxShape::Any,
-                "the value that denotes what separates the list",
+                "The value that denotes what separates the list.",
             )
             .switch(
                 "regex", 
@@ -128,7 +128,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Split a list of chars into lists based on multiple characters",
-                example: r"[a, b, c, d, a, e, f, g] | split list -r '(b|e)'",
+                example: r"[a, b, c, d, a, e, f, g] | split list --regex '(b|e)'",
                 result: Some(Value::list(
                     vec![
                         Value::list(vec![Value::test_string("a")], Span::test_data()),
@@ -161,17 +161,15 @@ impl Matcher {
     pub fn new(regex: bool, lhs: Value) -> Result<Self, ShellError> {
         if regex {
             Ok(Matcher::Regex(Regex::new(&lhs.as_string()?).map_err(
-                |err| {
-                    ShellError::GenericError(
-                        "Error with regular expression".into(),
-                        err.to_string(),
-                        match lhs {
-                            Value::Error { .. } => None,
-                            _ => Some(lhs.span()),
-                        },
-                        None,
-                        Vec::new(),
-                    )
+                |e| ShellError::GenericError {
+                    error: "Error with regular expression".into(),
+                    msg: e.to_string(),
+                    span: match lhs {
+                        Value::Error { .. } => None,
+                        _ => Some(lhs.span()),
+                    },
+                    help: None,
+                    inner: vec![],
                 },
             )?))
         } else {

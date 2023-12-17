@@ -27,7 +27,7 @@ impl Command for SubCommand {
             .required(
                 "URL",
                 SyntaxShape::String,
-                "the URL to fetch the contents from",
+                "The URL to fetch the contents from.",
             )
             .named(
                 "user",
@@ -115,23 +115,23 @@ impl Command for SubCommand {
             },
             Example {
                 description: "http delete from example.com, with username and password",
-                example: "http delete -u myuser -p mypass https://www.example.com",
+                example: "http delete --user myuser --password mypass https://www.example.com",
                 result: None,
             },
             Example {
                 description: "http delete from example.com, with custom header",
-                example: "http delete -H [my-header-key my-header-value] https://www.example.com",
+                example: "http delete --headers [my-header-key my-header-value] https://www.example.com",
                 result: None,
             },
             Example {
                 description: "http delete from example.com, with body",
-                example: "http delete -d 'body' https://www.example.com",
+                example: "http delete --data 'body' https://www.example.com",
                 result: None,
             },
             Example {
                 description: "http delete from example.com, with JSON body",
                 example:
-                    "http delete -t application/json -d { field: value } https://www.example.com",
+                    "http delete --content-type application/json --data { field: value } https://www.example.com",
                 result: None,
             },
         ]
@@ -187,7 +187,7 @@ fn helper(
     let ctrl_c = engine_state.ctrlc.clone();
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
 
-    let client = http_client(args.insecure);
+    let client = http_client(args.insecure, engine_state, stack);
     let mut request = client.delete(&requested_url);
 
     request = request_set_timeout(args.timeout, request)?;

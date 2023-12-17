@@ -85,18 +85,18 @@ impl Command for Fill {
             Example {
                 description:
                     "Fill a string on the left side to a width of 15 with the character '─'",
-                example: "'nushell' | fill -a l -c '─' -w 15",
+                example: "'nushell' | fill --alignment l --character '─' --width 15",
                 result: Some(Value::string("nushell────────", Span::test_data())),
             },
             Example {
                 description:
                     "Fill a string on the right side to a width of 15 with the character '─'",
-                example: "'nushell' | fill -a r -c '─' -w 15",
+                example: "'nushell' | fill --alignment r --character '─' --width 15",
                 result: Some(Value::string("────────nushell", Span::test_data())),
             },
             Example {
                 description: "Fill a string on both sides to a width of 15 with the character '─'",
-                example: "'nushell' | fill -a m -c '─' -w 15",
+                example: "'nushell' | fill --alignment m --character '─' --width 15",
                 result: Some(Value::string("────nushell────", Span::test_data())),
             },
             Example {
@@ -143,7 +143,7 @@ fn fill(
     let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
     let alignment = if let Some(arg) = alignment_arg {
-        match arg.to_lowercase().as_str() {
+        match arg.to_ascii_lowercase().as_str() {
             "l" | "left" => FillAlignment::Left,
             "r" | "right" => FillAlignment::Right,
             "c" | "center" | "m" | "middle" => FillAlignment::Middle,

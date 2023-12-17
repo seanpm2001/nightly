@@ -6,7 +6,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
-use polars::prelude::IntoSeries;
+use polars::prelude::{is_in, IntoSeries};
 
 #[derive(Clone)]
 pub struct IsIn;
@@ -71,24 +71,20 @@ fn command(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let df = NuDataFrame::try_from_pipeline(input, call.head)?;
+    let df = NuDataFrame::try_from_pipeline(input, call.head)?.as_series(call.head)?;
 
     let other_value: Value = call.req(engine_state, stack, 0)?;
     let other_span = other_value.span();
     let other_df = NuDataFrame::try_from_value(other_value)?;
     let other = other_df.as_series(other_span)?;
 
-    let mut res = df
-        .as_series(call.head)?
-        .is_in(&other)
-        .map_err(|e| {
-            ShellError::GenericError(
-                "Error finding in other".into(),
-                e.to_string(),
-                Some(call.head),
-                None,
-                Vec::new(),
-            )
+    let mut res = is_in(&df, &other)
+        .map_err(|e| ShellError::GenericError {
+            error: "Error finding in other".into(),
+            msg: e.to_string(),
+            span: Some(call.head),
+            help: None,
+            inner: vec![],
         })?
         .into_series();
 

@@ -25,7 +25,7 @@ impl Command for Do {
             .required(
                 "closure",
                 SyntaxShape::OneOf(vec![SyntaxShape::Closure(None), SyntaxShape::Any]),
-                "the closure to run",
+                "The closure to run.",
             )
             .input_output_types(vec![(Type::Any, Type::Any)])
             .switch(
@@ -53,7 +53,11 @@ impl Command for Do {
                 "keep the environment defined inside the command",
                 None,
             )
-            .rest("rest", SyntaxShape::Any, "the parameter(s) for the closure")
+            .rest(
+                "rest",
+                SyntaxShape::Any,
+                "The parameter(s) for the closure.",
+            )
             .category(Category::Core)
     }
 
@@ -72,7 +76,7 @@ impl Command for Do {
         let capture_errors = call.has_flag("capture-errors");
         let has_env = call.has_flag("env");
 
-        let mut callee_stack = caller_stack.captures_to_stack(&block.captures);
+        let mut callee_stack = caller_stack.captures_to_stack(block.captures);
         let block = engine_state.get_block(block.block_id);
 
         let params: Vec<_> = block
@@ -275,22 +279,22 @@ impl Command for Do {
             },
             Example {
                 description: "Run the closure and ignore both shell and external program errors",
-                example: r#"do -i { thisisnotarealcommand }"#,
+                example: r#"do --ignore-errors { thisisnotarealcommand }"#,
                 result: None,
             },
             Example {
                 description: "Run the closure and ignore shell errors",
-                example: r#"do -s { thisisnotarealcommand }"#,
+                example: r#"do --ignore-shell-errors { thisisnotarealcommand }"#,
                 result: None,
             },
             Example {
                 description: "Run the closure and ignore external program errors",
-                example: r#"do -p { nu -c 'exit 1' }; echo "I'll still run""#,
+                example: r#"do --ignore-program-errors { nu --commands 'exit 1' }; echo "I'll still run""#,
                 result: None,
             },
             Example {
                 description: "Abort the pipeline if a program returns a non-zero exit code",
-                example: r#"do -c { nu -c 'exit 1' } | myscarycommand"#,
+                example: r#"do --capture-errors { nu --commands 'exit 1' } | myscarycommand"#,
                 result: None,
             },
             Example {

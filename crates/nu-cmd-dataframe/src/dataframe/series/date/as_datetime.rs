@@ -132,14 +132,12 @@ fn command(
 
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
     let series = df.as_series(call.head)?;
-    let casted = series.utf8().map_err(|e| {
-        ShellError::GenericError(
-            "Error casting to string".into(),
-            e.to_string(),
-            Some(call.head),
-            None,
-            Vec::new(),
-        )
+    let casted = series.utf8().map_err(|e| ShellError::GenericError {
+        error: "Error casting to string".into(),
+        msg: e.to_string(),
+        span: Some(call.head),
+        help: None,
+        inner: vec![],
     })?;
 
     let res = if not_exact {
@@ -148,7 +146,7 @@ fn command(
             TimeUnit::Nanoseconds,
             false,
             None,
-            None,
+            &Default::default(),
         )
     } else {
         casted.as_datetime(
@@ -157,19 +155,17 @@ fn command(
             false,
             false,
             None,
-            None,
+            &Default::default(),
         )
     };
 
     let mut res = res
-        .map_err(|e| {
-            ShellError::GenericError(
-                "Error creating datetime".into(),
-                e.to_string(),
-                Some(call.head),
-                None,
-                Vec::new(),
-            )
+        .map_err(|e| ShellError::GenericError {
+            error: "Error creating datetime".into(),
+            msg: e.to_string(),
+            span: Some(call.head),
+            help: None,
+            inner: vec![],
         })?
         .into_series();
 

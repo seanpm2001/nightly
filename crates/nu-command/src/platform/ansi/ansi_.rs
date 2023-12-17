@@ -514,7 +514,7 @@ impl Command for AnsiCommand {
             .optional(
                 "code",
                 SyntaxShape::Any,
-                "the name of the code to use like 'green' or 'reset' to reset the color",
+                "The name of the code to use (from `ansi -l`).",
             )
             .switch(
                 "escape", // \x1b[
@@ -624,7 +624,7 @@ Operating system commands:
             },
             Example {
                 description: "Use escape codes, without the '\\x1b['",
-                example: r#"$"(ansi -e '3;93;41m')Hello(ansi reset)"  # italic bright yellow on red background"#,
+                example: r#"$"(ansi --escape '3;93;41m')Hello(ansi reset)"  # italic bright yellow on red background"#,
                 result: Some(Value::test_string("\u{1b}[3;93;41mHello\u{1b}[0m")),
             },
             Example {
@@ -634,7 +634,7 @@ Operating system commands:
         bg: '#ff0000'
         attr: b
     }
-    $"(ansi -e $bold_blue_on_red)Hello Nu World(ansi reset)""#,
+    $"(ansi --escape $bold_blue_on_red)Hello Nu World(ansi reset)""#,
                 result: Some(Value::test_string(
                     "\u{1b}[1;48;2;255;0;0;38;2;0;0;255mHello Nu World\u{1b}[0m",
                 )),
@@ -732,13 +732,13 @@ Operating system commands:
                         None => Color::White.prefix().to_string(),
                     },
                     Err(err) => {
-                        return Err(ShellError::GenericError(
-                            "error parsing hex color".to_string(),
-                            format!("{err}"),
-                            Some(code.span()),
-                            None,
-                            Vec::new(),
-                        ));
+                        return Err(ShellError::GenericError {
+                            error: "error parsing hex color".into(),
+                            msg: format!("{err}"),
+                            span: Some(code.span()),
+                            help: None,
+                            inner: vec![],
+                        });
                     }
                 }
             } else {

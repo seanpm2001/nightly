@@ -40,7 +40,7 @@ impl Command for BytesAdd {
                 (Type::Record(vec![]), Type::Record(vec![])),
             ])
             .allow_variants_without_examples(true)
-            .required("data", SyntaxShape::Binary, "the binary to add")
+            .required("data", SyntaxShape::Binary, "The binary to add.")
             .named(
                 "index",
                 SyntaxShape::Int,
@@ -51,7 +51,7 @@ impl Command for BytesAdd {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "for a data structure input, add bytes to the data at the given cell paths",
+                "For a data structure input, add bytes to the data at the given cell paths.",
             )
             .category(Category::Bytes)
     }
@@ -97,21 +97,21 @@ impl Command for BytesAdd {
             },
             Example {
                 description: "Add bytes `0x[AA BB]` to `0x[1F FF AA AA]` at index 1",
-                example: "0x[1F FF AA AA] | bytes add 0x[AA BB] -i 1",
+                example: "0x[1F FF AA AA] | bytes add 0x[AA BB] --index 1",
                 result: Some(Value::binary(vec![0x1F, 0xAA, 0xBB, 0xFF, 0xAA, 0xAA],
                     Span::test_data(),
                 )),
             },
             Example {
                 description: "Add bytes `0x[11]` to `0x[FF AA AA]` at the end",
-                example: "0x[FF AA AA] | bytes add 0x[11] -e",
+                example: "0x[FF AA AA] | bytes add 0x[11] --end",
                 result: Some(Value::binary(vec![0xFF, 0xAA, 0xAA, 0x11],
                     Span::test_data(),
                 )),
             },
             Example {
                 description: "Add bytes `0x[11 22 33]` to `0x[FF AA AA]` at the end, at index 1(the index is start from end)",
-                example: "0x[FF AA BB] | bytes add 0x[11 22 33] -e -i 1",
+                example: "0x[FF AA BB] | bytes add 0x[11 22 33] --end --index 1",
                 result: Some(Value::binary(vec![0xFF, 0xAA, 0x11, 0x22, 0x33, 0xBB],
                     Span::test_data(),
                 )),

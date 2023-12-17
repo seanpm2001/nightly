@@ -5,11 +5,11 @@ use nu_test_support::{nu, pipeline};
 fn parses_single_path_prefix() {
     let actual = nu!(
         cwd: "tests", pipeline(
-        r#"
+        r"
             echo 'C:\users\viking\spam.txt'
             | path parse
             | get prefix
-        "#
+        "
     ));
 
     assert_eq!(actual.out, "C:");
@@ -49,7 +49,7 @@ fn parses_custom_extension_gets_extension() {
         cwd: "tests", pipeline(
         r#"
             echo 'home/viking/spam.tar.gz'
-            | path parse -e tar.gz
+            | path parse --extension tar.gz
             | get extension
         "#
     ));
@@ -63,7 +63,7 @@ fn parses_custom_extension_gets_stem() {
         cwd: "tests", pipeline(
         r#"
             echo 'home/viking/spam.tar.gz'
-            | path parse -e tar.gz
+            | path parse --extension tar.gz
             | get stem
         "#
     ));
@@ -77,7 +77,7 @@ fn parses_ignoring_extension_gets_extension() {
         cwd: "tests", pipeline(
         r#"
             echo 'home/viking/spam.tar.gz'
-            | path parse -e ''
+            | path parse --extension ''
             | get extension
         "#
     ));
@@ -91,7 +91,7 @@ fn parses_ignoring_extension_gets_stem() {
         cwd: "tests", pipeline(
         r#"
             echo 'home/viking/spam.tar.gz'
-            | path parse -e ""
+            | path parse --extension ""
             | get stem
         "#
     ));

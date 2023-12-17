@@ -63,12 +63,12 @@ impl Command for BitsRor {
         let bytes_len = get_number_bytes(number_bytes.as_ref());
         if let NumberBytes::Invalid = bytes_len {
             if let Some(val) = number_bytes {
-                return Err(ShellError::UnsupportedInput(
-                    "Only 1, 2, 4, 8, or 'auto' bytes are supported as word sizes".to_string(),
-                    "value originates from here".to_string(),
-                    head,
-                    val.span,
-                ));
+                return Err(ShellError::UnsupportedInput {
+                    msg: "Only 1, 2, 4, 8, or 'auto' bytes are supported as word sizes".to_string(),
+                    input: "value originates from here".to_string(),
+                    msg_span: head,
+                    input_span: val.span,
+                });
             }
         }
         // This doesn't match explicit nulls
@@ -90,7 +90,7 @@ impl Command for BitsRor {
             },
             Example {
                 description: "Rotate right a list of numbers of one byte",
-                example: "[15 33 92] | bits ror 2 -n '1'",
+                example: "[15 33 92] | bits ror 2 --number-bytes '1'",
                 result: Some(Value::list(
                     vec![
                         Value::test_int(195),
@@ -112,15 +112,15 @@ where
     match rotate_result {
         Ok(val) => Value::int(val, span),
         Err(_) => Value::error(
-            ShellError::GenericError(
-                "Rotate right result beyond the range of 64 bit signed number".to_string(),
-                format!(
+            ShellError::GenericError {
+                error: "Rotate right result beyond the range of 64 bit signed number".into(),
+                msg: format!(
                     "{val} of the specified number of bytes rotate right {bits} bits exceed limit"
                 ),
-                Some(span),
-                None,
-                Vec::new(),
-            ),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            },
             span,
         ),
     }

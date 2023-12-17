@@ -24,8 +24,8 @@ impl Command for SubCommand {
         Signature::build("http patch")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
-            .required("URL", SyntaxShape::String, "the URL to post to")
-            .required("data", SyntaxShape::Any, "the contents of the post body")
+            .required("URL", SyntaxShape::String, "The URL to post to.")
+            .required("data", SyntaxShape::Any, "The contents of the post body.")
             .named(
                 "user",
                 SyntaxShape::Any,
@@ -111,17 +111,19 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Patch content to example.com, with username and password",
-                example: "http patch -u myuser -p mypass https://www.example.com 'body'",
+                example:
+                    "http patch --user myuser --password mypass https://www.example.com 'body'",
                 result: None,
             },
             Example {
                 description: "Patch content to example.com, with custom header",
-                example: "http patch -H [my-header-key my-header-value] https://www.example.com",
+                example:
+                    "http patch --headers [my-header-key my-header-value] https://www.example.com",
                 result: None,
             },
             Example {
                 description: "Patch content to example.com, with JSON body",
-                example: "http patch -t application/json https://www.example.com { field: value }",
+                example: "http patch --content-type application/json https://www.example.com { field: value }",
                 result: None,
             },
         ]
@@ -177,7 +179,7 @@ fn helper(
     let ctrl_c = engine_state.ctrlc.clone();
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
 
-    let client = http_client(args.insecure);
+    let client = http_client(args.insecure, engine_state, stack);
     let mut request = client.patch(&requested_url);
 
     request = request_set_timeout(args.timeout, request)?;

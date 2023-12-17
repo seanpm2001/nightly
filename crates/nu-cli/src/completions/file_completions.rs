@@ -1,15 +1,15 @@
-use crate::completions::{completion_common::complete_item, Completer, CompletionOptions};
+use crate::completions::{
+    completion_common::{adjust_if_intermediate, complete_item, AdjustView},
+    Completer, CompletionOptions, SortBy,
+};
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     levenshtein_distance, Span,
 };
+use nu_utils::IgnoreCaseExt;
 use reedline::Suggestion;
-use std::path::{is_separator, Path};
+use std::path::{Path, MAIN_SEPARATOR as SEP};
 use std::sync::Arc;
-
-use super::SortBy;
-
-const SEP: char = std::path::MAIN_SEPARATOR;
 
 #[derive(Clone)]
 pub struct FileCompletion {
@@ -25,15 +25,21 @@ impl FileCompletion {
 impl Completer for FileCompletion {
     fn fetch(
         &mut self,
-        _: &StateWorkingSet,
+        working_set: &StateWorkingSet,
         prefix: Vec<u8>,
         span: Span,
         offset: usize,
         _: usize,
         options: &CompletionOptions,
     ) -> Vec<Suggestion> {
-        let prefix = String::from_utf8_lossy(&prefix).to_string();
-        let output: Vec<_> = file_path_completion(
+        let AdjustView {
+            prefix,
+            span,
+            readjusted,
+        } = adjust_if_intermediate(&prefix, working_set, span);
+
+        let output: Vec<_> = complete_item(
+            readjusted,
             span,
             &prefix,
             &self.engine_state.current_work_dir(),
@@ -106,20 +112,6 @@ impl Completer for FileCompletion {
     }
 }
 
-pub fn partial_from(input: &str) -> (String, String) {
-    let partial = input.replace('`', "");
-
-    // If partial is only a word we want to search in the current dir
-    let (base, rest) = partial.rsplit_once(is_separator).unwrap_or((".", &partial));
-    // On windows, this standardizes paths to use \
-    let mut base = base.replace(is_separator, &SEP.to_string());
-
-    // rsplit_once removes the separator
-    base.push(SEP);
-
-    (base.to_string(), rest.to_string())
-}
-
 pub fn file_path_completion(
     span: nu_protocol::Span,
     partial: &str,
@@ -134,7 +126,7 @@ pub fn matches(partial: &str, from: &str, options: &CompletionOptions) -> bool {
     if !options.case_sensitive {
         return options
             .match_algorithm
-            .matches_str(&from.to_ascii_lowercase(), &partial.to_ascii_lowercase());
+            .matches_str(&from.to_folded_case(), &partial.to_folded_case());
     }
 
     options.match_algorithm.matches_str(from, partial)

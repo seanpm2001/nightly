@@ -63,12 +63,12 @@ impl Command for BitsShl {
         let bytes_len = get_number_bytes(number_bytes.as_ref());
         if let NumberBytes::Invalid = bytes_len {
             if let Some(val) = number_bytes {
-                return Err(ShellError::UnsupportedInput(
-                    "Only 1, 2, 4, 8, or 'auto' bytes are supported as word sizes".to_string(),
-                    "value originates from here".to_string(),
-                    head,
-                    val.span,
-                ));
+                return Err(ShellError::UnsupportedInput {
+                    msg: "Only 1, 2, 4, 8, or 'auto' bytes are supported as word sizes".to_string(),
+                    input: "value originates from here".to_string(),
+                    msg_span: head,
+                    input_span: val.span,
+                });
             }
         }
         // This doesn't match explicit nulls
@@ -90,12 +90,12 @@ impl Command for BitsShl {
             },
             Example {
                 description: "Shift left a number with 1 byte by 7 bits",
-                example: "2 | bits shl 7 -n '1'",
+                example: "2 | bits shl 7 --number-bytes '1'",
                 result: Some(Value::test_int(0)),
             },
             Example {
                 description: "Shift left a signed number by 1 bit",
-                example: "0x7F | bits shl 1 -s",
+                example: "0x7F | bits shl 1 --signed",
                 result: Some(Value::test_int(254)),
             },
             Example {
@@ -120,27 +120,27 @@ where
             match shift_result {
                 Ok(val) => Value::int( val, span ),
                 Err(_) => Value::error(
-                    ShellError::GenericError(
-                        "Shift left result beyond the range of 64 bit signed number".to_string(),
-                        format!(
+                    ShellError::GenericError {
+                        error:"Shift left result beyond the range of 64 bit signed number".into(),
+                        msg: format!(
                             "{val} of the specified number of bytes shift left {bits} bits exceed limit"
                         ),
-                        Some(span),
-                        None,
-                        Vec::new(),
-                    ),
+                        span: Some(span),
+                        help: None,
+                        inner: vec![],
+                    },
                     span,
                 ),
             }
         }
         None => Value::error(
-            ShellError::GenericError(
-                "Shift left failed".to_string(),
-                format!("{val} shift left {bits} bits failed, you may shift too many bits"),
-                Some(span),
-                None,
-                Vec::new(),
-            ),
+            ShellError::GenericError {
+                error: "Shift left failed".into(),
+                msg: format!("{val} shift left {bits} bits failed, you may shift too many bits"),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            },
             span,
         ),
     }

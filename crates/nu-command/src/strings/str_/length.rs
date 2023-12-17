@@ -49,7 +49,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, replace strings at the given cell paths with their length",
+                "For a data structure input, replace strings at the given cell paths with their length.",
             )
             .category(Category::Strings)
     }
@@ -96,7 +96,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Count length using grapheme clusters",
-                example: "'🇯🇵ほげ ふが ぴよ' | str length -g",
+                example: "'🇯🇵ほげ ふが ぴよ' | str length  --grapheme-clusters",
                 result: Some(Value::test_int(9)),
             },
             Example {

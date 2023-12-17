@@ -23,10 +23,10 @@ impl Command for ToXml {
         Signature::build("to xml")
             .input_output_types(vec![(Type::Record(vec![]), Type::String)])
             .named(
-                "pretty",
+                "indent",
                 SyntaxShape::Int,
                 "Formats the XML text with the provided indentation setting",
-                Some('p'),
+                Some('i'),
             )
             .category(Category::Formats)
     }
@@ -60,7 +60,7 @@ Additionally any field which is: empty record, empty list or null, can be omitte
             },
             Example {
                 description: "Optionally, formats the text with a custom indentation setting",
-                example: r#"{tag: note content : [{tag: remember content : [Event]}]} | to xml -p 3"#,
+                example: r#"{tag: note content : [{tag: remember content : [Event]}]} | to xml --indent 3"#,
                 result: Some(Value::test_string(
                     "<note>\n   <remember>Event</remember>\n</note>",
                 )),
@@ -80,9 +80,9 @@ Additionally any field which is: empty record, empty list or null, can be omitte
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let pretty: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "pretty")?;
+        let indent: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "indent")?;
         let input = input.try_expand_range()?;
-        to_xml(input, head, pretty)
+        to_xml(input, head, indent)
     }
 }
 
@@ -109,47 +109,50 @@ fn to_xml_entry<W: Write>(
         return to_xml_text(val.as_str(), span, writer);
     }
 
-    if !matches!(entry, Value::Record { .. }) {
-        return Err(ShellError::CantConvert {
+    if let Value::Record { val: record, .. } = &entry {
+        // If key is not found it is assumed to be nothing. This way
+        // user can write a tag like {tag: a content: [...]} instead
+        // of longer {tag: a attributes: {} content: [...]}
+        let tag = record
+            .get(COLUMN_TAG_NAME)
+            .cloned()
+            .unwrap_or_else(|| Value::nothing(Span::unknown()));
+        let attrs = record
+            .get(COLUMN_ATTRS_NAME)
+            .cloned()
+            .unwrap_or_else(|| Value::nothing(Span::unknown()));
+        let content = record
+            .get(COLUMN_CONTENT_NAME)
+            .cloned()
+            .unwrap_or_else(|| Value::nothing(Span::unknown()));
+
+        let content_span = content.span();
+        let tag_span = tag.span();
+        match (tag, attrs, content) {
+            (Value::Nothing { .. }, Value::Nothing { .. }, Value::String { val, .. }) => {
+                // Strings can not appear on top level of document
+                if top_level {
+                    return Err(ShellError::CantConvert {
+                        to_type: "XML".into(),
+                        from_type: entry.get_type().to_string(),
+                        span: entry_span,
+                        help: Some("Strings can not be a root element of document".into()),
+                    });
+                }
+                to_xml_text(val.as_str(), content_span, writer)
+            }
+            (Value::String { val: tag_name, .. }, attrs, children) => to_tag_like(
+                entry_span, tag_name, tag_span, attrs, children, top_level, writer,
+            ),
+            _ => Ok(()),
+        }
+    } else {
+        Err(ShellError::CantConvert {
             to_type: "XML".into(),
             from_type: entry.get_type().to_string(),
             span: entry_span,
             help: Some("Xml entry expected to be a record".into()),
-        });
-    };
-
-    // If key is not found it is assumed to be nothing. This way
-    // user can write a tag like {tag: a content: [...]} instead
-    // of longer {tag: a attributes: {} content: [...]}
-    let tag = entry
-        .get_data_by_key(COLUMN_TAG_NAME)
-        .unwrap_or_else(|| Value::nothing(Span::unknown()));
-    let attrs = entry
-        .get_data_by_key(COLUMN_ATTRS_NAME)
-        .unwrap_or_else(|| Value::nothing(Span::unknown()));
-    let content = entry
-        .get_data_by_key(COLUMN_CONTENT_NAME)
-        .unwrap_or_else(|| Value::nothing(Span::unknown()));
-
-    let content_span = content.span();
-    let tag_span = tag.span();
-    match (tag, attrs, content) {
-        (Value::Nothing { .. }, Value::Nothing { .. }, Value::String { val, .. }) => {
-            // Strings can not appear on top level of document
-            if top_level {
-                return Err(ShellError::CantConvert {
-                    to_type: "XML".into(),
-                    from_type: entry.get_type().to_string(),
-                    span: entry_span,
-                    help: Some("Strings can not be a root element of document".into()),
-                });
-            }
-            to_xml_text(val.as_str(), content_span, writer)
-        }
-        (Value::String { val: tag_name, .. }, attrs, children) => to_tag_like(
-            entry_span, tag_name, tag_span, attrs, children, top_level, writer,
-        ),
-        _ => Ok(()),
+        })
     }
 }
 
@@ -373,9 +376,9 @@ fn to_xml_text<W: Write>(
 fn to_xml(
     input: PipelineData,
     head: Span,
-    pretty: Option<Spanned<i64>>,
+    indent: Option<Spanned<i64>>,
 ) -> Result<PipelineData, ShellError> {
-    let mut w = pretty.as_ref().map_or_else(
+    let mut w = indent.as_ref().map_or_else(
         || quick_xml::Writer::new(Cursor::new(Vec::new())),
         |p| quick_xml::Writer::new_with_indent(Cursor::new(Vec::new()), b' ', p.item as usize),
     );
@@ -387,7 +390,7 @@ fn to_xml(
         let s = if let Ok(s) = String::from_utf8(b) {
             s
         } else {
-            return Err(ShellError::NonUtf8(head));
+            return Err(ShellError::NonUtf8 { span: head });
         };
         Ok(Value::string(s, head).into_pipeline_data())
     })

@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, Record, ShellError, Signature, Span, Spanned, SyntaxShape,
+    record, Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
     Type, Value,
 };
 
@@ -44,12 +44,12 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::String)),
                 ),
             ])
-            .required("find", SyntaxShape::String, "the pattern to find")
-            .required("replace", SyntaxShape::String, "the replacement string")
+            .required("find", SyntaxShape::String, "The pattern to find.")
+            .required("replace", SyntaxShape::String, "The replacement string.")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, operate on strings at the given cell paths",
+                "For a data structure input, operate on strings at the given cell paths.",
             )
             .switch("all", "replace all occurrences of the pattern", Some('a'))
             .switch(
@@ -115,7 +115,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Find and replace all occurrences of a substring",
-                example: r#"'abc abc abc' | str replace -a 'b' 'z'"#,
+                example: r#"'abc abc abc' | str replace --all 'b' 'z'"#,
                 result: Some(Value::test_string("azc azc azc")),
             },
             Example {
@@ -125,36 +125,29 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Find and replace all occurrences of find string using regular expression",
-                example: "'abc abc abc' | str replace -ar 'b' 'z'",
+                example: "'abc abc abc' | str replace --all --regex 'b' 'z'",
                 result: Some(Value::test_string("azc azc azc")),
             },
             Example {
                 description: "Find and replace all occurrences of find string in table using regular expression",
                 example:
-                    "[[ColA ColB ColC]; [abc abc ads]] | str replace -ar 'b' 'z' ColA ColC",
-                result: Some(Value::list (
-                    vec![Value::test_record(Record {
-                        cols: vec!["ColA".to_string(), "ColB".to_string(), "ColC".to_string()],
-                        vals: vec![
-                            Value::test_string("azc"),
-                            Value::test_string("abc"),
-                            Value::test_string("ads"),
-                        ],
+                    "[[ColA ColB ColC]; [abc abc ads]] | str replace --all --regex 'b' 'z' ColA ColC",
+                result: Some(Value::test_list (
+                    vec![Value::test_record(record! {
+                        "ColA" => Value::test_string("azc"),
+                        "ColB" => Value::test_string("abc"),
+                        "ColC" => Value::test_string("ads"),
                     })],
-                     Span::test_data(),
                 )),
             },
             Example {
                 description: "Find and replace all occurrences of find string in record using regular expression",
                 example:
-                    "{ KeyA: abc, KeyB: abc, KeyC: ads } | str replace -ar 'b' 'z' KeyA KeyC",
-                result: Some(Value::test_record(Record {
-                        cols: vec!["KeyA".to_string(), "KeyB".to_string(), "KeyC".to_string()],
-                        vals: vec![
-                            Value::test_string("azc"),
-                            Value::test_string("abc"),
-                            Value::test_string("ads"),
-                        ],
+                    "{ KeyA: abc, KeyB: abc, KeyC: ads } | str replace --all --regex 'b' 'z' KeyA KeyC",
+                result: Some(Value::test_record(record! {
+                        "KeyA" => Value::test_string("azc"),
+                        "KeyB" => Value::test_string("abc"),
+                        "KeyC" => Value::test_string("ads"),
                     })),
             },
             Example {
@@ -179,7 +172,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Find and replace on individual lines using multiline regular expression",
-                example: r#""non-matching line\n123. one line\n124. another line\n" | str replace -am '^[0-9]+\. ' ''"#,
+                example: r#""non-matching line\n123. one line\n124. another line\n" | str replace --all --multiline '^[0-9]+\. ' ''"#,
                 result: Some(Value::test_string("non-matching line\none line\nanother line\n")),
             },
 

@@ -61,7 +61,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Get the arcsine of 1 in degrees",
-                example: "1 | math arcsin -d",
+                example: "1 | math arcsin --degrees",
                 result: Some(Value::test_float(90.0)),
             },
         ]
@@ -85,12 +85,13 @@ fn operate(value: Value, head: Span, use_degrees: bool) -> Value {
                 Value::float(val, span)
             } else {
                 Value::error(
-                    ShellError::UnsupportedInput(
-                        "'arcsin' undefined for values outside the closed interval [-1, 1].".into(),
-                        "value originates from here".into(),
-                        head,
-                        span,
-                    ),
+                    ShellError::UnsupportedInput {
+                        msg: "'arcsin' undefined for values outside the closed interval [-1, 1]."
+                            .into(),
+                        input: "value originates from here".into(),
+                        msg_span: head,
+                        input_span: span,
+                    },
                     span,
                 )
             }

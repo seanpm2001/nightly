@@ -41,11 +41,11 @@ impl Command for Open {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("open")
             .input_output_types(vec![(Type::Nothing, Type::Any), (Type::String, Type::Any)])
-            .optional("filename", SyntaxShape::Filepath, "the filename to use")
+            .optional("filename", SyntaxShape::Filepath, "The filename to use.")
             .rest(
                 "filenames",
                 SyntaxShape::Filepath,
-                "optional additional files to open",
+                "Optional additional files to open.",
             )
             .switch("raw", "open file as raw binary", Some('r'))
             .category(Category::FileSystem)
@@ -105,7 +105,7 @@ impl Command for Open {
 
             for path in nu_engine::glob_from(&path, &cwd, call_span, None)
                 .map_err(|err| match err {
-                    ShellError::DirectoryNotFound(span, _) => ShellError::FileNotFound(span),
+                    ShellError::DirectoryNotFound { span, .. } => ShellError::FileNotFound { span },
                     _ => err,
                 })?
                 .1
@@ -125,13 +125,13 @@ impl Command for Open {
 
                     #[cfg(not(unix))]
                     let error_msg = String::from("Permission denied");
-                    return Err(ShellError::GenericError(
-                        "Permission denied".into(),
-                        error_msg,
-                        Some(arg_span),
-                        None,
-                        Vec::new(),
-                    ));
+                    return Err(ShellError::GenericError {
+                        error: "Permission denied".into(),
+                        msg: error_msg,
+                        span: Some(arg_span),
+                        help: None,
+                        inner: vec![],
+                    });
                 } else {
                     #[cfg(feature = "sqlite")]
                     if !raw {
@@ -146,13 +146,13 @@ impl Command for Open {
                     let file = match std::fs::File::open(path) {
                         Ok(file) => file,
                         Err(err) => {
-                            return Err(ShellError::GenericError(
-                                "Permission denied".into(),
-                                err.to_string(),
-                                Some(arg_span),
-                                None,
-                                Vec::new(),
-                            ));
+                            return Err(ShellError::GenericError {
+                                error: "Permission denied".into(),
+                                msg: err.to_string(),
+                                span: Some(arg_span),
+                                help: None,
+                                inner: vec![],
+                            });
                         }
                     };
 
@@ -171,49 +171,45 @@ impl Command for Open {
                         metadata: None,
                         trim_end_newline: false,
                     };
-                    let ext = if raw {
+                    let exts_opt: Option<Vec<String>> = if raw {
                         None
                     } else {
-                        path.extension()
-                            .map(|name| name.to_string_lossy().to_string().to_lowercase())
+                        let path_str = path
+                            .file_name()
+                            .unwrap_or(std::ffi::OsStr::new(path))
+                            .to_string_lossy()
+                            .to_lowercase();
+                        Some(extract_extensions(path_str.as_str()))
                     };
 
-                    if let Some(ext) = ext {
-                        match engine_state.find_decl(format!("from {ext}").as_bytes(), &[]) {
-                            Some(converter_id) => {
-                                let decl = engine_state.get_decl(converter_id);
-                                let command_output = if let Some(block_id) = decl.get_block_id() {
-                                    let block = engine_state.get_block(block_id);
-                                    eval_block(
-                                        engine_state,
-                                        stack,
-                                        block,
-                                        file_contents,
-                                        false,
-                                        false,
-                                    )
-                                } else {
-                                    decl.run(
-                                        engine_state,
-                                        stack,
-                                        &Call::new(call_span),
-                                        file_contents,
-                                    )
-                                };
-                                output.push(command_output.map_err(|inner| {
-                                    ShellError::GenericError(
-                                        format!("Error while parsing as {ext}"),
-                                        format!("Could not parse '{}' with `from {}`", path.display(), ext),
-                                        Some(arg_span),
-                                        Some(format!("Check out `help from {}` or `help from` for more options or open raw data with `open --raw '{}'`", ext, path.display())),
-                                        vec![inner],
-                                    )
+                    let converter = exts_opt.and_then(|exts| {
+                        exts.iter().find_map(|ext| {
+                            engine_state
+                                .find_decl(format!("from {}", ext).as_bytes(), &[])
+                                .map(|id| (id, ext.to_string()))
+                        })
+                    });
+
+                    match converter {
+                        Some((converter_id, ext)) => {
+                            let decl = engine_state.get_decl(converter_id);
+                            let command_output = if let Some(block_id) = decl.get_block_id() {
+                                let block = engine_state.get_block(block_id);
+                                eval_block(engine_state, stack, block, file_contents, false, false)
+                            } else {
+                                decl.run(engine_state, stack, &Call::new(call_span), file_contents)
+                            };
+                            output.push(command_output.map_err(|inner| {
+                                    ShellError::GenericError{
+                                        error: format!("Error while parsing as {ext}"),
+                                        msg: format!("Could not parse '{}' with `from {}`", path.display(), ext),
+                                        span: Some(arg_span),
+                                        help: Some(format!("Check out `help from {}` or `help from` for more options or open raw data with `open --raw '{}'`", ext, path.display())),
+                                        inner: vec![inner],
+                                }
                                 })?);
-                            }
-                            None => output.push(file_contents),
                         }
-                    } else {
-                        output.push(file_contents)
+                        None => output.push(file_contents),
                     }
                 }
             }
@@ -264,4 +260,24 @@ fn permission_denied(dir: impl AsRef<Path>) -> bool {
         Err(e) => matches!(e.kind(), std::io::ErrorKind::PermissionDenied),
         Ok(_) => false,
     }
+}
+
+fn extract_extensions(filename: &str) -> Vec<String> {
+    let parts: Vec<&str> = filename.split('.').collect();
+    let mut extensions: Vec<String> = Vec::new();
+    let mut current_extension = String::new();
+
+    for part in parts.iter().rev() {
+        if current_extension.is_empty() {
+            current_extension.push_str(part);
+        } else {
+            current_extension = format!("{}.{}", part, current_extension);
+        }
+        extensions.push(current_extension.clone());
+    }
+
+    extensions.pop();
+    extensions.reverse();
+
+    extensions
 }

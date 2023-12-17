@@ -27,7 +27,7 @@ impl Command for SubCommand {
             .required(
                 "URL",
                 SyntaxShape::String,
-                "the URL to fetch the options from",
+                "The URL to fetch the options from.",
             )
             .named(
                 "user",
@@ -98,22 +98,22 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Get options from example.com, with username and password",
-                example: "http options -u myuser -p mypass https://www.example.com",
+                example: "http options --user myuser --password mypass https://www.example.com",
                 result: None,
             },
             Example {
                 description: "Get options from example.com, with custom header",
-                example: "http options -H [my-header-key my-header-value] https://www.example.com",
+                example: "http options --headers [my-header-key my-header-value] https://www.example.com",
                 result: None,
             },
             Example {
                 description: "Get options from example.com, with custom headers",
-                example: "http options -H [my-header-key-A my-header-value-A my-header-key-B my-header-value-B] https://www.example.com",
+                example: "http options --headers [my-header-key-A my-header-value-A my-header-key-B my-header-value-B] https://www.example.com",
                 result: None,
             },
             Example {
                 description: "Simulate a browser cross-origin preflight request from www.example.com to media.example.com",
-                example: "http options https://media.example.com/api/ -H [Origin https://www.example.com Access-Control-Request-Headers \"Content-Type, X-Custom-Header\" Access-Control-Request-Method GET]",
+                example: "http options https://media.example.com/api/ --headers [Origin https://www.example.com Access-Control-Request-Headers \"Content-Type, X-Custom-Header\" Access-Control-Request-Method GET]",
                 result: None,
             },
         ]
@@ -160,7 +160,7 @@ fn helper(
     let ctrl_c = engine_state.ctrlc.clone();
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
 
-    let client = http_client(args.insecure);
+    let client = http_client(args.insecure, engine_state, stack);
     let mut request = client.request("OPTIONS", &requested_url);
 
     request = request_set_timeout(args.timeout, request)?;
