@@ -73,7 +73,7 @@ jobs:
         #   os: ubuntu-20.04
         #   target_rustflags: ''
         - target: loongarch64-unknown-linux-gnu
-          os: ubuntu-20.04
+          os: ubuntu-latest
           target_rustflags: ''
 
     runs-on: ${{matrix.os}}
@@ -168,7 +168,7 @@ jobs:
         #   os: ubuntu-20.04
         #   target_rustflags: '--features=dataframe,extra'
         - target: loongarch64-unknown-linux-gnu
-          os: ubuntu-20.04
+          os: ubuntu-latest
           target_rustflags: '--features=dataframe,extra'
 
     runs-on: ${{matrix.os}}
