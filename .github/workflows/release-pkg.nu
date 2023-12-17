@@ -82,8 +82,8 @@ print $'Start building ($bin)...'; hr-line
 # ----------------------------------------------------------------------------
 # Build for Ubuntu and macOS
 # ----------------------------------------------------------------------------
-if $os in [$USE_UBUNTU, 'macos-latest'] {
-    if $os == $USE_UBUNTU {
+if $os in [$USE_UBUNTU, 'macos-latest', 'ubuntu-latest'] {
+    if $os =~ 'ubuntu' {
         sudo apt update
         sudo apt-get install libxcb-composite0-dev -y
     }
