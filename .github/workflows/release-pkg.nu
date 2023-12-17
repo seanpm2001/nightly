@@ -101,7 +101,7 @@ if $os in [$USE_UBUNTU, 'macos-latest'] {
         'loongarch64-unknown-linux-gnu' => {
             # https://github.com/rust-lang/cargo/pull/12436
             # https://github.com/simd-everywhere/simde/blob/1594d7ccf9f0f05b98816731af1b39efbcbdb873/.github/workflows/ci.yml#L646
-            sudo apt-get install gcc-riscv64-linux-gnu -y
+            sudo apt-get install gcc-loongarch64-linux-gnu -y
             $env.CARGO_TARGET_LOONGARCH64_UNKNOWN_LINUX_GNUN_LINKER = 'loongarch64-unknown-linux-gnu-gcc'
             cargo-build-nu $flags
         }
