@@ -15,6 +15,7 @@ mod open;
 mod query_df;
 mod rename;
 mod sample;
+mod schema;
 mod shape;
 mod slice;
 mod sql_context;
@@ -49,10 +50,10 @@ pub use melt::MeltDF;
 pub use query_df::QueryDf;
 pub use rename::RenameDF;
 pub use sample::SampleDF;
+pub use schema::SchemaDF;
 pub use shape::ShapeDF;
 pub use slice::SliceDF;
 pub use sql_context::SQLContext;
-pub use sql_expr::parse_sql_expr;
 pub use summary::Summary;
 pub use take::TakeDF;
 pub use to_arrow::ToArrow;
@@ -94,6 +95,7 @@ pub fn add_eager_decls(working_set: &mut StateWorkingSet) {
         QueryDf,
         RenameDF,
         SampleDF,
+        SchemaDF,
         ShapeDF,
         SliceDF,
         TakeDF,

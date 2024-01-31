@@ -986,10 +986,10 @@ fn test_cp_destination_after_cd() {
 }
 
 #[rstest]
-#[case(r#"'a]c'"#)]
-#[case(r#"'a[c'"#)]
-#[case(r#"'a[bc]d'"#)]
-#[case(r#"'a][c'"#)]
+#[case("a]c")]
+#[case("a[c")]
+#[case("a[bc]d")]
+#[case("a][c")]
 fn copies_files_with_glob_metachars(#[case] src_name: &str) {
     Playground::setup("ucp_test_34", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
@@ -1005,7 +1005,7 @@ fn copies_files_with_glob_metachars(#[case] src_name: &str) {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "cp {} {}",
+            "cp '{}' {}",
             src.display(),
             TEST_HELLO_WORLD_DEST
         );
@@ -1026,4 +1026,99 @@ fn copies_files_with_glob_metachars(#[case] src_name: &str) {
 // windows doesn't allow filename with `*`.
 fn copies_files_with_glob_metachars_nw(#[case] src_name: &str) {
     copies_files_with_glob_metachars(src_name);
+}
+
+#[cfg(not(windows))]
+#[test]
+fn test_cp_preserve_timestamps() {
+    // Preserve timestamp and mode
+
+    Playground::setup("ucp_test_35", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("file.txt")]);
+        let actual = nu!(
+        cwd: dirs.test(),
+        "
+            chmod +x file.txt
+            cp --preserve [ mode timestamps ] file.txt other.txt
+
+            let old_attrs = ls -l file.txt | get 0 | select mode accessed modified
+            let new_attrs = ls -l other.txt | get 0 | select mode accessed modified
+
+            $old_attrs == $new_attrs
+        ",
+        );
+        assert!(actual.err.is_empty());
+        assert_eq!(actual.out, "true");
+    });
+}
+
+#[cfg(not(windows))]
+#[test]
+fn test_cp_preserve_only_timestamps() {
+    // Preserve timestamps and discard all other attributes including mode
+
+    Playground::setup("ucp_test_35", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("file.txt")]);
+        let actual = nu!(
+        cwd: dirs.test(),
+        "
+            chmod +x file.txt
+            cp --preserve [ timestamps ] file.txt other.txt
+
+            let old_attrs = ls -l file.txt | get 0 | select mode accessed modified
+            let new_attrs = ls -l other.txt | get 0 | select mode accessed modified
+
+            print (($old_attrs | select mode) != ($new_attrs | select mode))
+            print (($old_attrs | select accessed modified) == ($new_attrs | select accessed modified))
+        ",
+        );
+        assert!(actual.err.is_empty());
+        assert_eq!(actual.out, "truetrue");
+    });
+}
+
+#[cfg(not(windows))]
+#[test]
+fn test_cp_preserve_nothing() {
+    // Preserve no attributes
+
+    Playground::setup("ucp_test_35", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("file.txt")]);
+        let actual = nu!(
+        cwd: dirs.test(),
+        "
+            chmod +x file.txt
+            cp --preserve [] file.txt other.txt
+
+            let old_attrs = ls -l file.txt | get 0 | select mode accessed modified
+            let new_attrs = ls -l other.txt | get 0 | select mode accessed modified
+
+            $old_attrs != $new_attrs
+        ",
+        );
+        assert!(actual.err.is_empty());
+        assert_eq!(actual.out, "true");
+    });
+}
+
+#[test]
+fn test_cp_inside_glob_metachars_dir() {
+    Playground::setup("open_files_inside_glob_metachars_dir", |dirs, sandbox| {
+        let sub_dir = "test[]";
+        sandbox
+            .within(sub_dir)
+            .with_files(vec![FileWithContent("test_file.txt", "hello")]);
+
+        let actual = nu!(
+            cwd: dirs.test().join(sub_dir),
+            "cp test_file.txt ../",
+        );
+
+        assert!(actual.err.is_empty());
+        assert!(files_exist_at(
+            vec!["test_file.txt"],
+            dirs.test().join(sub_dir)
+        ));
+        assert!(files_exist_at(vec!["test_file.txt"], dirs.test()));
+    });
 }

@@ -1,4 +1,4 @@
-use crate::{call_ext::CallExt, current_dir_str, get_full_help};
+use crate::{current_dir_str, get_config, get_full_help};
 use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{
@@ -7,11 +7,11 @@ use nu_protocol::{
     },
     engine::{Closure, EngineState, Stack},
     eval_base::Eval,
-    DeclId, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError, Span,
-    Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
+    Config, DeclId, IntoPipelineData, PipelineData, ShellError, Span, Spanned, Type, Value, VarId,
+    ENV_VARIABLE_ID,
 };
-use std::collections::HashMap;
 use std::thread::{self, JoinHandle};
+use std::{borrow::Cow, collections::HashMap};
 
 pub fn eval_call(
     engine_state: &EngineState,
@@ -42,11 +42,17 @@ pub fn eval_call(
 
         let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
 
-        for (param_idx, param) in decl
+        for (param_idx, (param, required)) in decl
             .signature()
             .required_positional
             .iter()
-            .chain(decl.signature().optional_positional.iter())
+            .map(|p| (p, true))
+            .chain(
+                decl.signature()
+                    .optional_positional
+                    .iter()
+                    .map(|p| (p, false)),
+            )
             .enumerate()
         {
             let var_id = param
@@ -55,6 +61,26 @@ pub fn eval_call(
 
             if let Some(arg) = call.positional_nth(param_idx) {
                 let result = eval_expression(engine_state, caller_stack, arg)?;
+                let param_type = param.shape.to_type();
+                if required && !result.get_type().is_subtype(&param_type) {
+                    // need to check if result is an empty list, and param_type is table or list
+                    // nushell needs to pass type checking for the case.
+                    let empty_list_matches = result
+                        .as_list()
+                        .map(|l| {
+                            l.is_empty() && matches!(param_type, Type::List(_) | Type::Table(_))
+                        })
+                        .unwrap_or(false);
+
+                    if !empty_list_matches {
+                        return Err(ShellError::CantConvert {
+                            to_type: param.shape.to_type().to_string(),
+                            from_type: result.get_type().to_string(),
+                            span: result.span(),
+                            help: None,
+                        });
+                    }
+                }
                 callee_stack.add_var(var_id, result);
             } else if let Some(value) = &param.default_value {
                 callee_stack.add_var(var_id, value.to_owned());
@@ -373,7 +399,7 @@ fn eval_element_with_input(
                 Expr::String(_)
                 | Expr::FullCellPath(_)
                 | Expr::StringInterpolation(_)
-                | Expr::Filepath(_) => {
+                | Expr::Filepath(_, _) => {
                     let exit_code = match &mut input {
                         PipelineData::ExternalStream { exit_code, .. } => exit_code.take(),
                         _ => None,
@@ -471,11 +497,11 @@ fn eval_element_with_input(
                 Expr::String(_)
                 | Expr::FullCellPath(_)
                 | Expr::StringInterpolation(_)
-                | Expr::Filepath(_),
+                | Expr::Filepath(_, _),
                 Expr::String(_)
                 | Expr::FullCellPath(_)
                 | Expr::StringInterpolation(_)
-                | Expr::Filepath(_),
+                | Expr::Filepath(_, _),
             ) => {
                 if let Some(save_command) = engine_state.find_decl(b"save", &[]) {
                     let exit_code = match &mut input {
@@ -899,26 +925,38 @@ impl Eval for EvalRuntime {
 
     type MutState = Stack;
 
+    fn get_config<'a>(engine_state: Self::State<'a>, stack: &mut Stack) -> Cow<'a, Config> {
+        Cow::Owned(get_config(engine_state, stack))
+    }
+
     fn eval_filepath(
-        engine_state: Self::State<'_>,
-        stack: &mut Self::MutState,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         path: String,
+        quoted: bool,
         span: Span,
     ) -> Result<Value, ShellError> {
-        let cwd = current_dir_str(engine_state, stack)?;
-        let path = expand_path_with(path, cwd);
+        if quoted {
+            Ok(Value::string(path, span))
+        } else {
+            let cwd = current_dir_str(engine_state, stack)?;
+            let path = expand_path_with(path, cwd);
 
-        Ok(Value::string(path.to_string_lossy(), span))
+            Ok(Value::string(path.to_string_lossy(), span))
+        }
     }
 
     fn eval_directory(
         engine_state: Self::State<'_>,
         stack: &mut Self::MutState,
         path: String,
+        quoted: bool,
         span: Span,
     ) -> Result<Value, ShellError> {
         if path == "-" {
             Ok(Value::string("-", span))
+        } else if quoted {
+            Ok(Value::string(path, span))
         } else {
             let cwd = current_dir_str(engine_state, stack)?;
             let path = expand_path_with(path, cwd);
@@ -1102,48 +1140,27 @@ impl Eval for EvalRuntime {
             .get_block(block_id)
             .captures
             .iter()
-            .map(|&id| stack.get_var(id, span).map(|var| (id, var)))
+            .map(|&id| {
+                stack
+                    .get_var(id, span)
+                    .or_else(|_| {
+                        engine_state
+                            .get_var(id)
+                            .const_val
+                            .clone()
+                            .ok_or(ShellError::VariableNotFoundAtRuntime { span })
+                    })
+                    .map(|var| (id, var))
+            })
             .collect::<Result<_, _>>()?;
 
         Ok(Value::closure(Closure { block_id, captures }, span))
-    }
-
-    fn eval_string_interpolation(
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        exprs: &[Expression],
-        span: Span,
-    ) -> Result<Value, ShellError> {
-        let mut parts = vec![];
-        for expr in exprs {
-            parts.push(eval_expression(engine_state, stack, expr)?);
-        }
-
-        let config = engine_state.get_config();
-
-        parts
-            .into_iter()
-            .into_pipeline_data(None)
-            .collect_string("", config)
-            .map(|x| Value::string(x, span))
     }
 
     fn eval_overlay(engine_state: &EngineState, span: Span) -> Result<Value, ShellError> {
         let name = String::from_utf8_lossy(engine_state.get_span_contents(span)).to_string();
 
         Ok(Value::string(name, span))
-    }
-
-    fn eval_glob_pattern(
-        engine_state: Self::State<'_>,
-        stack: &mut Self::MutState,
-        pattern: String,
-        span: Span,
-    ) -> Result<Value, ShellError> {
-        let cwd = current_dir_str(engine_state, stack)?;
-        let path = expand_path_with(pattern, cwd);
-
-        Ok(Value::string(path.to_string_lossy(), span))
     }
 
     fn unreachable(expr: &Expression) -> Result<Value, ShellError> {

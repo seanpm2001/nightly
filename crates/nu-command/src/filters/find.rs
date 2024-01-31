@@ -30,11 +30,6 @@ impl Command for Find {
                     Type::List(Box::new(Type::Any)),
                 ),
                 (Type::String, Type::Any),
-                (
-                    // For find -p
-                    Type::Table(vec![]),
-                    Type::Table(vec![]),
-                ),
             ])
             .named(
                 "regex",
@@ -80,9 +75,9 @@ impl Command for Find {
                 result: None,
             },
             Example {
-                description: "Search for a term in a string",
+                description: "Search and highlight text for a term in a string",
                 example: r#"'Cargo.toml' | find toml"#,
-                result: Some(Value::test_string("Cargo.toml".to_owned())),
+                result: Some(Value::test_string("\u{1b}[37mCargo.\u{1b}[0m\u{1b}[41;37mtoml\u{1b}[0m\u{1b}[37m\u{1b}[0m".to_owned())),
             },
             Example {
                 description: "Search a number or a file size in a list of numbers",
@@ -96,7 +91,7 @@ impl Command for Find {
                 description: "Search a char in a list of string",
                 example: r#"[moe larry curly] | find l"#,
                 result: Some(Value::list(
-                    vec![Value::test_string("larry"), Value::test_string("curly")],
+                    vec![Value::test_string("\u{1b}[37m\u{1b}[0m\u{1b}[41;37ml\u{1b}[0m\u{1b}[37marry\u{1b}[0m"), Value::test_string("\u{1b}[37mcur\u{1b}[0m\u{1b}[41;37ml\u{1b}[0m\u{1b}[37my\u{1b}[0m")],
                     Span::test_data(),
                 )),
             },
@@ -219,7 +214,7 @@ impl Command for Find {
 fn find_with_regex(
     regex: String,
     engine_state: &EngineState,
-    _stack: &mut Stack,
+    stack: &mut Stack,
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
@@ -227,10 +222,10 @@ fn find_with_regex(
     let ctrlc = engine_state.ctrlc.clone();
     let config = engine_state.get_config().clone();
 
-    let insensitive = call.has_flag("ignore-case");
-    let multiline = call.has_flag("multiline");
-    let dotall = call.has_flag("dotall");
-    let invert = call.has_flag("invert");
+    let insensitive = call.has_flag(engine_state, stack, "ignore-case")?;
+    let multiline = call.has_flag(engine_state, stack, "multiline")?;
+    let dotall = call.has_flag(engine_state, stack, "dotall")?;
+    let invert = call.has_flag(engine_state, stack, "invert")?;
 
     let flags = match (insensitive, multiline, dotall) {
         (false, false, false) => "",
@@ -279,6 +274,31 @@ where
         re.is_match(v.into_string(" ", config).as_str())
             .unwrap_or(false)
     })
+}
+
+fn highlight_terms_in_string(
+    val: &Value,
+    span: Span,
+    config: &Config,
+    terms: &[Value],
+    string_style: Style,
+    highlight_style: Style,
+) -> Value {
+    let val_str = val.into_string("", config);
+
+    if let Some(term) = terms
+        .iter()
+        .find(|term| contains_ignore_case(&val_str, &term.into_string("", config)))
+    {
+        let term_str = term.into_string("", config);
+        let highlighted_str =
+            highlight_search_string(&val_str, &term_str, &string_style, &highlight_style)
+                .unwrap_or_else(|_| string_style.paint(&term_str).to_string());
+
+        return Value::string(highlighted_str, span);
+    }
+
+    val.clone()
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -336,7 +356,7 @@ fn find_with_rest_and_highlight(
     let engine_state = engine_state.clone();
     let config = engine_state.get_config().clone();
     let filter_config = engine_state.get_config().clone();
-    let invert = call.has_flag("invert");
+    let invert = call.has_flag(&engine_state, stack, "invert")?;
     let terms = call.rest::<Value>(&engine_state, stack, 0)?;
     let lower_terms = terms
         .iter()
@@ -368,6 +388,14 @@ fn find_with_rest_and_highlight(
                         Value::Record { val, .. } => highlight_terms_in_record_with_search_columns(
                             &cols_to_search_in_map,
                             val,
+                            span,
+                            &config,
+                            &terms,
+                            string_style,
+                            highlight_style,
+                        ),
+                        Value::String { .. } => highlight_terms_in_string(
+                            &x,
                             span,
                             &config,
                             &terms,
@@ -500,6 +528,7 @@ fn value_should_be_printed(
         | Value::Nothing { .. }
         | Value::Error { .. } => term_equals_value(term, &lower_value, span),
         Value::String { .. }
+        | Value::QuotedString { .. }
         | Value::List { .. }
         | Value::CellPath { .. }
         | Value::CustomValue { .. } => term_contains_value(term, &lower_value, span),
