@@ -71,7 +71,9 @@ const FULL_RLS_NAMING = {
 
 # $env
 
-let USE_UBUNTU = 'ubuntu-20.04'
+let USE_UBUNTU = $os starts-with ubuntu
+print $'USE_UBUNTU: ($USE_UBUNTU)'
+print $'USE_UBUNTU --: ($os =~ ubuntu)'
 let FULL_NAME = $FULL_RLS_NAMING | get -i $target | default 'unknown-target-full'
 
 print $'(char nl)Packaging ($bin) v($version) for ($target) in ($src)...'; hr-line -b
@@ -82,8 +84,8 @@ print $'Start building ($bin)...'; hr-line
 # ----------------------------------------------------------------------------
 # Build for Ubuntu and macOS
 # ----------------------------------------------------------------------------
-if $os in [$USE_UBUNTU, 'macos-latest', 'ubuntu-latest'] {
-    if $os starts-with ubuntu {
+if $os in ['macos-latest'] or $USE_UBUNTU {
+    if $USE_UBUNTU {
         sudo apt update
         sudo apt-get install libxcb-composite0-dev -y
     }
@@ -106,7 +108,7 @@ if $os in [$USE_UBUNTU, 'macos-latest', 'ubuntu-latest'] {
         _ => {
             # musl-tools to fix 'Failed to find tool. Is `musl-gcc` installed?'
             # Actually just for x86_64-unknown-linux-musl target
-            if $os starts-with ubuntu { sudo apt install musl-tools -y }
+            if $USE_UBUNTU { sudo apt install musl-tools -y }
             cargo-build-nu $flags
         }
     }
@@ -153,7 +155,7 @@ if ($ver | str trim | is-empty) {
 # Create a release archive and send it to output for the following steps
 # ----------------------------------------------------------------------------
 cd $dist; print $'(char nl)Creating release archive...'; hr-line
-if $os in [$USE_UBUNTU, 'macos-latest', 'ubuntu-latest'] {
+if $os in ['macos-latest'] or $USE_UBUNTU {
 
     let files = (ls | get name)
     let dest = if $env.RELEASE_TYPE == 'full' { $'($bin)-($version)-($FULL_NAME)' } else { $'($bin)-($version)-($target)' }

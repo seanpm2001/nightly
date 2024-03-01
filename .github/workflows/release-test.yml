@@ -61,16 +61,16 @@ jobs:
           os: windows-latest
           target_rustflags: ''
         - target: x86_64-unknown-linux-gnu
-          os: ubuntu-20.04
+          os: ubuntu-22.04
           target_rustflags: ''
         - target: x86_64-unknown-linux-musl
-          os: ubuntu-20.04
+          os: ubuntu-22.04
           target_rustflags: ''
         - target: aarch64-unknown-linux-gnu
-          os: ubuntu-20.04
+          os: ubuntu-22.04
           target_rustflags: ''
         - target: armv7-unknown-linux-gnueabihf
-          os: ubuntu-20.04
+          os: ubuntu-22.04
           target_rustflags: ''
         - target: riscv64gc-unknown-linux-gnu
           os: ubuntu-latest
@@ -95,9 +95,9 @@ jobs:
         rustflags: ''
 
     - name: Setup Nushell
-      uses: hustcer/setup-nu@v3.8
+      uses: hustcer/setup-nu@v3.9
       with:
-        version: 0.86.0
+        version: 0.90.1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -161,13 +161,13 @@ jobs:
           os: windows-latest
           target_rustflags: '--features=dataframe,extra'
         - target: x86_64-unknown-linux-gnu
-          os: ubuntu-20.04
+          os: ubuntu-22.04
           target_rustflags: '--features=dataframe,extra'
         - target: x86_64-unknown-linux-musl
-          os: ubuntu-20.04
+          os: ubuntu-22.04
           target_rustflags: '--features=dataframe,extra'
         - target: aarch64-unknown-linux-gnu
-          os: ubuntu-20.04
+          os: ubuntu-22.04
           target_rustflags: '--features=dataframe,extra'
 
     runs-on: ${{matrix.os}}
@@ -189,9 +189,9 @@ jobs:
         rustflags: ''
 
     - name: Setup Nushell
-      uses: hustcer/setup-nu@v3.8
+      uses: hustcer/setup-nu@v3.9
       with:
-        version: 0.86.0
+        version: 0.90.1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
