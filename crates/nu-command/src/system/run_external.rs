@@ -2,7 +2,7 @@ use nu_cmd_base::hook::eval_hook;
 use nu_engine::env_to_strings;
 use nu_engine::eval_expression;
 use nu_engine::CallExt;
-use nu_protocol::NuPath;
+use nu_protocol::NuGlob;
 use nu_protocol::{
     ast::{Call, Expr},
     did_you_mean,
@@ -123,7 +123,7 @@ pub fn create_external_command(
         let span = value.span();
 
         value
-            .as_string()
+            .coerce_string()
             .map(|item| Spanned { item, span })
             .map_err(|_| ShellError::ExternalCommand {
                 label: format!("Cannot convert {} to a string", value.get_type()),
@@ -711,9 +711,11 @@ fn trim_expand_and_apply_arg(
     // if arg is quoted, like "aa", 'aa', `aa`, or:
     // if arg is a variable or String interpolation, like: $variable_name, $"($variable_name)"
     // `as_a_whole` will be true, so nu won't remove the inner quotes.
-    let (trimmed_args, run_glob_expansion, mut keep_raw) = trim_enclosing_quotes(&arg.item);
+    let (trimmed_args, mut run_glob_expansion, mut keep_raw) = trim_enclosing_quotes(&arg.item);
     if *arg_keep_raw {
         keep_raw = true;
+        // it's a list or a variable, don't run glob expansion either
+        run_glob_expansion = false;
     }
     let mut arg = Spanned {
         item: if keep_raw {
@@ -730,9 +732,9 @@ fn trim_expand_and_apply_arg(
     }
     let cwd = PathBuf::from(cwd);
     if arg.item.contains('*') && run_glob_expansion {
-        // we need to run glob expansion, so it's unquoted.
+        // we need to run glob expansion, so it's NeedExpand.
         let path = Spanned {
-            item: NuPath::UnQuoted(arg.item.clone()),
+            item: NuGlob::Expand(arg.item.clone()),
             span: arg.span,
         };
         if let Ok((prefix, matches)) = nu_engine::glob_from(&path, &cwd, arg.span, None) {

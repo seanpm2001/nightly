@@ -14,7 +14,7 @@ use nu_protocol::{
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
     eval_const::eval_constant,
     span, Alias, BlockId, DeclId, Exportable, Module, ModuleId, ParseError, PositionalArg,
-    ResolvedImportPattern, Span, Spanned, SyntaxShape, Type, VarId,
+    ResolvedImportPattern, Span, Spanned, SyntaxShape, Type, Value, VarId,
 };
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -2646,7 +2646,7 @@ pub fn parse_overlay_new(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
 
     let (overlay_name, _) = if let Some(expr) = call.positional_nth(0) {
         match eval_constant(working_set, expr) {
-            Ok(val) => match val.as_string() {
+            Ok(val) => match val.coerce_into_string() {
                 Ok(s) => (s, expr.span),
                 Err(err) => {
                     working_set.error(err.wrap(working_set, call_span));
@@ -2695,7 +2695,7 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
 
     let (overlay_name, overlay_name_span) = if let Some(expr) = call.positional_nth(0) {
         match eval_constant(working_set, expr) {
-            Ok(val) => match val.as_string() {
+            Ok(val) => match val.coerce_into_string() {
                 Ok(s) => (s, expr.span),
                 Err(err) => {
                     working_set.error(err.wrap(working_set, call_span));
@@ -2718,7 +2718,7 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
     let new_name = if let Some(kw_expression) = call.positional_nth(1) {
         if let Some(new_name_expression) = kw_expression.as_keyword() {
             match eval_constant(working_set, new_name_expression) {
-                Ok(val) => match val.as_string() {
+                Ok(val) => match val.coerce_into_string() {
                     Ok(s) => Some(Spanned {
                         item: s,
                         span: new_name_expression.span,
@@ -2916,7 +2916,7 @@ pub fn parse_overlay_hide(working_set: &mut StateWorkingSet, call: Box<Call>) ->
 
     let (overlay_name, overlay_name_span) = if let Some(expr) = call.positional_nth(0) {
         match eval_constant(working_set, expr) {
-            Ok(val) => match val.as_string() {
+            Ok(val) => match val.coerce_into_string() {
                 Ok(s) => (s, expr.span),
                 Err(err) => {
                     working_set.error(err.wrap(working_set, call_span));
@@ -3156,10 +3156,10 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
                         }
 
                         match eval_constant(working_set, &rvalue) {
-                            Ok(val) => {
+                            Ok(mut value) => {
                                 // In case rhs is parsed as 'any' but is evaluated to a concrete
                                 // type:
-                                let const_type = val.get_type();
+                                let mut const_type = value.get_type();
 
                                 if let Some(explicit_type) = &explicit_type {
                                     if !type_compatible(explicit_type, &const_type) {
@@ -3169,12 +3169,25 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
                                             nu_protocol::span(&spans[(span.0 + 1)..]),
                                         ));
                                     }
+                                    let val_span = value.span();
+
+                                    // need to convert to Value::glob if rhs is string, and
+                                    // the const variable is annotated with glob type.
+                                    match value {
+                                        Value::String { val, .. }
+                                            if explicit_type == &Type::Glob =>
+                                        {
+                                            value = Value::glob(val, false, val_span);
+                                            const_type = value.get_type();
+                                        }
+                                        _ => {}
+                                    }
                                 }
 
                                 working_set.set_variable_type(var_id, const_type);
 
                                 // Assign the constant value to the variable
-                                working_set.set_variable_const_val(var_id, val);
+                                working_set.set_variable_const_val(var_id, value);
                             }
                             Err(err) => working_set.error(err.wrap(working_set, rvalue.span)),
                         }
@@ -3383,7 +3396,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeli
                     }
                 };
 
-                let filename = match val.as_string() {
+                let filename = match val.coerce_into_string() {
                     Ok(s) => s,
                     Err(err) => {
                         working_set.error(err.wrap(working_set, span(&spans[1..])));
@@ -3590,7 +3603,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
             let val =
                 eval_constant(working_set, expr).map_err(|err| err.wrap(working_set, call.head))?;
             let filename = val
-                .as_string()
+                .coerce_into_string()
                 .map_err(|err| err.wrap(working_set, call.head))?;
 
             let Some(path) = find_in_dirs(&filename, working_set, &cwd, PLUGIN_DIRS_VAR) else {
@@ -3800,7 +3813,7 @@ pub fn find_in_dirs(
             .ok()?
             .iter()
             .map(|lib_dir| -> Option<PathBuf> {
-                let dir = lib_dir.as_path().ok()?;
+                let dir = lib_dir.to_path().ok()?;
                 let dir_abs = canonicalize_with(dir, actual_cwd).ok()?;
                 canonicalize_with(filename, dir_abs).ok()
             })
@@ -3833,7 +3846,7 @@ pub fn find_in_dirs(
                 if let Some(lib_dirs) = working_set.get_env_var(dirs_env) {
                     if let Ok(dirs) = lib_dirs.as_list() {
                         for lib_dir in dirs {
-                            if let Ok(dir) = lib_dir.as_path() {
+                            if let Ok(dir) = lib_dir.to_path() {
                                 // make sure the dir is absolute path
                                 if let Ok(dir_abs) = canonicalize_with(dir, actual_cwd) {
                                     if let Ok(path) = canonicalize_with(filename, dir_abs) {
