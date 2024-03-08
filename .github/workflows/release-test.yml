@@ -86,7 +86,7 @@ jobs:
         echo "targets = ['${{matrix.target}}']" >> rust-toolchain.toml
 
     - name: Run sccache-cache
-      uses: mozilla-actions/sccache-action@v0.0.3
+      uses: mozilla-actions/sccache-action@v0.0.4
 
     - name: Setup Rust toolchain and cache
       uses: actions-rust-lang/setup-rust-toolchain@v1.5.0
@@ -97,7 +97,7 @@ jobs:
     - name: Setup Nushell
       uses: hustcer/setup-nu@v3.9
       with:
-        version: 0.90.1
+        version: 0.91.0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -180,7 +180,7 @@ jobs:
         echo "targets = ['${{matrix.target}}']" >> rust-toolchain.toml
 
     - name: Run sccache-cache
-      uses: mozilla-actions/sccache-action@v0.0.3
+      uses: mozilla-actions/sccache-action@v0.0.4
 
     - name: Setup Rust toolchain and cache
       uses: actions-rust-lang/setup-rust-toolchain@v1.5.0
@@ -191,7 +191,7 @@ jobs:
     - name: Setup Nushell
       uses: hustcer/setup-nu@v3.9
       with:
-        version: 0.90.1
+        version: 0.91.0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
