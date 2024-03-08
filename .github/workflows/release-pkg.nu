@@ -181,10 +181,11 @@ if $os in ['macos-latest'] or $USE_UBUNTU {
     if (get-env _EXTRA_) == 'msi' {
 
         let wixRelease = $'($src)/target/wix/($releaseStem).msi'
-        print $'(char nl)Start creating Windows msi package...'
+        print $'(char nl)Start creating Windows msi package with the following contents...'
         cd $src; hr-line
         # Wix need the binaries be stored in target/release/
-        cp -r ...(glob $'($dist)/*') target/release/
+        cp -r ($'($dist)/*' | into glob) target/release/
+        ls target/release/* | print
         cargo install cargo-wix --version 0.3.4
         cargo wix --no-build --nocapture --package nu --output $wixRelease
         # Workaround for https://github.com/softprops/action-gh-release/issues/280
