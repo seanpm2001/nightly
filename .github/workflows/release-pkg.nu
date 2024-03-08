@@ -160,7 +160,7 @@ if $os in ['macos-latest'] or $USE_UBUNTU {
     let archive = $'($dist)/($dest).tar.gz'
 
     mkdir $dest
-    $files | each {|it| mv -v $it $dest }
+    $files | each {|it| cp -v $it $dest }
 
     print $'(char nl)(ansi g)Archive contents:(ansi reset)'; hr-line; ls $dest | print
 
