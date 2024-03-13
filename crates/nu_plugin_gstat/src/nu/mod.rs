@@ -1,5 +1,5 @@
 use crate::GStat;
-use nu_plugin::{EvaluatedCall, LabeledError, Plugin};
+use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, Plugin};
 use nu_protocol::{Category, PluginSignature, Spanned, SyntaxShape, Value};
 
 impl Plugin for GStat {
@@ -11,9 +11,9 @@ impl Plugin for GStat {
     }
 
     fn run(
-        &mut self,
+        &self,
         name: &str,
-        _config: &Option<Value>,
+        engine: &EngineInterface,
         call: &EvaluatedCall,
         input: &Value,
     ) -> Result<Value, LabeledError> {
@@ -23,6 +23,7 @@ impl Plugin for GStat {
 
         let repo_path: Option<Spanned<String>> = call.opt(0)?;
         // eprintln!("input value: {:#?}", &input);
-        self.gstat(input, repo_path, call.head)
+        let current_dir = engine.get_current_dir()?;
+        self.gstat(input, &current_dir, repo_path, call.head)
     }
 }

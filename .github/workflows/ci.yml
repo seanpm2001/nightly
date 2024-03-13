@@ -23,14 +23,12 @@ jobs:
         # builds to link against a too-new-for-many-Linux-installs glibc version. Consider
         # revisiting this when 20.04 is closer to EOL (April 2025)
         platform: [windows-latest, macos-latest, ubuntu-20.04]
-        feature: [default, dataframe, extra]
+        feature: [default, dataframe]
         include:
           - feature: default
             flags: ""
           - feature: dataframe
             flags: "--features=dataframe"
-          - feature: extra
-            flags: "--features=extra"
         exclude:
           - platform: windows-latest
             feature: dataframe
@@ -40,7 +38,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v4.1.1
+      - uses: actions/checkout@v4.1.2
 
       - name: Run sccache-cache
         uses: mozilla-actions/sccache-action@v0.0.4
@@ -61,12 +59,15 @@ jobs:
       - name: Clippy of tests
         run: cargo clippy --tests --workspace ${{ matrix.flags }} --exclude nu_plugin_* -- -D warnings
 
+      - name: Clippy of benchmarks
+        run: cargo clippy --benches --workspace ${{ matrix.flags }} --exclude nu_plugin_* -- -D warnings
+
   tests:
     strategy:
       fail-fast: true
       matrix:
         platform: [windows-latest, macos-latest, ubuntu-20.04]
-        feature: [default, dataframe, extra]
+        feature: [default, dataframe]
         include:
           # linux CI cannot handle clipboard feature
           - default-flags: ""
@@ -76,22 +77,16 @@ jobs:
             flags: ""
           - feature: dataframe
             flags: "--features=dataframe"
-          - feature: extra
-            flags: "--features=extra"
         exclude:
           - platform: windows-latest
             feature: dataframe
           - platform: macos-latest
             feature: dataframe
-          - platform: windows-latest
-            feature: extra
-          - platform: macos-latest
-            feature: extra
 
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v4.1.1
+      - uses: actions/checkout@v4.1.2
 
       - name: Run sccache-cache
         uses: mozilla-actions/sccache-action@v0.0.4
@@ -126,7 +121,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v4.1.1
+      - uses: actions/checkout@v4.1.2
 
       - name: Run sccache-cache
         uses: mozilla-actions/sccache-action@v0.0.4
@@ -175,7 +170,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v4.1.1
+      - uses: actions/checkout@v4.1.2
 
       - name: Run sccache-cache
         uses: mozilla-actions/sccache-action@v0.0.4

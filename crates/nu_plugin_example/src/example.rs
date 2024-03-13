@@ -1,13 +1,14 @@
-use nu_plugin::{EvaluatedCall, LabeledError};
+use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError};
 use nu_protocol::{record, Value};
 pub struct Example;
 
 impl Example {
     pub fn config(
         &self,
-        config: &Option<Value>,
+        engine: &EngineInterface,
         call: &EvaluatedCall,
     ) -> Result<Value, LabeledError> {
+        let config = engine.get_plugin_config()?;
         match config {
             Some(config) => Ok(config.clone()),
             None => Err(LabeledError {
@@ -97,5 +98,43 @@ impl Example {
             msg: "error message pointing to call head span".into(),
             span: Some(call.head),
         })
+    }
+
+    pub fn env(
+        &self,
+        engine: &EngineInterface,
+        call: &EvaluatedCall,
+    ) -> Result<Value, LabeledError> {
+        if call.has_flag("cwd")? {
+            // Get working directory
+            Ok(Value::string(engine.get_current_dir()?, call.head))
+        } else if let Some(name) = call.opt::<String>(0)? {
+            // Get single env var
+            Ok(engine
+                .get_env_var(name)?
+                .unwrap_or(Value::nothing(call.head)))
+        } else {
+            // Get all env vars, converting the map to a record
+            Ok(Value::record(
+                engine.get_env_vars()?.into_iter().collect(),
+                call.head,
+            ))
+        }
+    }
+
+    pub fn disable_gc(
+        &self,
+        engine: &EngineInterface,
+        call: &EvaluatedCall,
+    ) -> Result<Value, LabeledError> {
+        let disabled = !call.has_flag("reset")?;
+        engine.set_gc_disabled(disabled)?;
+        Ok(Value::string(
+            format!(
+                "The plugin garbage collector for `example` is now *{}*.",
+                if disabled { "disabled" } else { "enabled" }
+            ),
+            call.head,
+        ))
     }
 }

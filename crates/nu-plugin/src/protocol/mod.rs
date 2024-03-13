@@ -8,20 +8,27 @@ mod tests;
 #[cfg(test)]
 pub(crate) mod test_util;
 
-pub use evaluated_call::EvaluatedCall;
-use nu_protocol::{PluginSignature, RawStream, ShellError, Span, Spanned, Value};
-pub use plugin_custom_value::PluginCustomValue;
-pub(crate) use protocol_info::ProtocolInfo;
-use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
+pub use evaluated_call::EvaluatedCall;
+use nu_protocol::{
+    ast::Operator, engine::Closure, Config, PipelineData, PluginSignature, RawStream, ShellError,
+    Span, Spanned, Value,
+};
+pub use plugin_custom_value::PluginCustomValue;
+pub use protocol_info::ProtocolInfo;
 #[cfg(test)]
-pub(crate) use protocol_info::Protocol;
+pub use protocol_info::{Feature, Protocol};
+use serde::{Deserialize, Serialize};
 
 /// A sequential identifier for a stream
 pub type StreamId = usize;
 
 /// A sequential identifier for a [`PluginCall`]
 pub type PluginCallId = usize;
+
+/// A sequential identifier for an [`EngineCall`]
+pub type EngineCallId = usize;
 
 /// Information about a plugin command invocation. This includes an [`EvaluatedCall`] as a
 /// serializable representation of [`nu_protocol::ast::Call`]. The type parameter determines
@@ -34,8 +41,6 @@ pub struct CallInfo<D> {
     pub call: EvaluatedCall,
     /// Pipeline input. This is usually [`nu_protocol::PipelineData`] or [`PipelineDataHeader`]
     pub input: D,
-    /// Plugin configuration, if available
-    pub config: Option<Value>,
 }
 
 /// The initial (and perhaps only) part of any [`nu_protocol::PipelineData`] sent over the wire.
@@ -55,6 +60,30 @@ pub enum PipelineDataHeader {
     ///
     /// Items are sent via [`StreamData`]
     ExternalStream(ExternalStreamInfo),
+}
+
+impl PipelineDataHeader {
+    /// Return a list of stream IDs embedded in the header
+    pub(crate) fn stream_ids(&self) -> Vec<StreamId> {
+        match self {
+            PipelineDataHeader::Empty => vec![],
+            PipelineDataHeader::Value(_) => vec![],
+            PipelineDataHeader::ListStream(info) => vec![info.id],
+            PipelineDataHeader::ExternalStream(info) => {
+                let mut out = vec![];
+                if let Some(stdout) = &info.stdout {
+                    out.push(stdout.id);
+                }
+                if let Some(stderr) = &info.stderr {
+                    out.push(stderr.id);
+                }
+                if let Some(exit_code) = &info.exit_code {
+                    out.push(exit_code.id);
+                }
+                out
+            }
+        }
+    }
 }
 
 /// Additional information about list (value) streams
@@ -104,6 +133,31 @@ pub enum PluginCall<D> {
 pub enum CustomValueOp {
     /// [`to_base_value()`](nu_protocol::CustomValue::to_base_value)
     ToBaseValue,
+    /// [`follow_path_int()`](nu_protocol::CustomValue::follow_path_int)
+    FollowPathInt(Spanned<usize>),
+    /// [`follow_path_string()`](nu_protocol::CustomValue::follow_path_string)
+    FollowPathString(Spanned<String>),
+    /// [`partial_cmp()`](nu_protocol::CustomValue::partial_cmp)
+    PartialCmp(Value),
+    /// [`operation()`](nu_protocol::CustomValue::operation)
+    Operation(Spanned<Operator>, Value),
+    /// Notify that the custom value has been dropped, if
+    /// [`notify_plugin_on_drop()`](nu_protocol::CustomValue::notify_plugin_on_drop) is true
+    Dropped,
+}
+
+impl CustomValueOp {
+    /// Get the name of the op, for error messages.
+    pub(crate) fn name(&self) -> &'static str {
+        match self {
+            CustomValueOp::ToBaseValue => "to_base_value",
+            CustomValueOp::FollowPathInt(_) => "follow_path_int",
+            CustomValueOp::FollowPathString(_) => "follow_path_string",
+            CustomValueOp::PartialCmp(_) => "partial_cmp",
+            CustomValueOp::Operation(_, _) => "operation",
+            CustomValueOp::Dropped => "dropped",
+        }
+    }
 }
 
 /// Any data sent to the plugin
@@ -117,6 +171,9 @@ pub enum PluginInput {
     /// Don't expect any more plugin calls. Exit after all currently executing plugin calls are
     /// finished.
     Goodbye,
+    /// Response to an [`EngineCall`]. The ID should be the same one sent with the engine call this
+    /// is responding to
+    EngineCallResponse(EngineCallId, EngineCallResponse<PipelineDataHeader>),
     /// Stream control or data message. Untagged to keep them as small as possible.
     ///
     /// For example, `Stream(Ack(0))` is encoded as `{"Ack": 0}`
@@ -276,6 +333,7 @@ impl From<ShellError> for LabeledError {
 pub enum PluginCallResponse<D> {
     Error(LabeledError),
     Signature(Vec<PluginSignature>),
+    Ordering(Option<Ordering>),
     PipelineData(D),
 }
 
@@ -290,6 +348,44 @@ impl PluginCallResponse<PipelineDataHeader> {
     }
 }
 
+/// Options that can be changed to affect how the engine treats the plugin
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum PluginOption {
+    /// Send `GcDisabled(true)` to stop the plugin from being automatically garbage collected, or
+    /// `GcDisabled(false)` to enable it again.
+    ///
+    /// See [`EngineInterface::set_gc_disabled`] for more information.
+    GcDisabled(bool),
+}
+
+/// This is just a serializable version of [std::cmp::Ordering], and can be converted 1:1
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum Ordering {
+    Less,
+    Equal,
+    Greater,
+}
+
+impl From<std::cmp::Ordering> for Ordering {
+    fn from(value: std::cmp::Ordering) -> Self {
+        match value {
+            std::cmp::Ordering::Less => Ordering::Less,
+            std::cmp::Ordering::Equal => Ordering::Equal,
+            std::cmp::Ordering::Greater => Ordering::Greater,
+        }
+    }
+}
+
+impl From<Ordering> for std::cmp::Ordering {
+    fn from(value: Ordering) -> Self {
+        match value {
+            Ordering::Less => std::cmp::Ordering::Less,
+            Ordering::Equal => std::cmp::Ordering::Equal,
+            Ordering::Greater => std::cmp::Ordering::Greater,
+        }
+    }
+}
+
 /// Information received from the plugin
 ///
 /// Note: exported for internal use, not public.
@@ -298,9 +394,20 @@ impl PluginCallResponse<PipelineDataHeader> {
 pub enum PluginOutput {
     /// This must be the first message. Indicates supported protocol
     Hello(ProtocolInfo),
+    /// Set option. No response expected
+    Option(PluginOption),
     /// A response to a [`PluginCall`]. The ID should be the same sent with the plugin call this
     /// is a response to
     CallResponse(PluginCallId, PluginCallResponse<PipelineDataHeader>),
+    /// Execute an [`EngineCall`]. Engine calls must be executed within the `context` of a plugin
+    /// call, and the `id` should not have been used before
+    EngineCall {
+        /// The plugin call (by ID) to execute in the context of
+        context: PluginCallId,
+        /// A new identifier for this engine call. The response will reference this ID
+        id: EngineCallId,
+        call: EngineCall<PipelineDataHeader>,
+    },
     /// Stream control or data message. Untagged to keep them as small as possible.
     ///
     /// For example, `Stream(Ack(0))` is encoded as `{"Ack": 0}`
@@ -322,5 +429,73 @@ impl TryFrom<PluginOutput> for StreamMessage {
 impl From<StreamMessage> for PluginOutput {
     fn from(stream_msg: StreamMessage) -> PluginOutput {
         PluginOutput::Stream(stream_msg)
+    }
+}
+
+/// A remote call back to the engine during the plugin's execution.
+///
+/// The type parameter determines the input type, for calls that take pipeline data.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum EngineCall<D> {
+    /// Get the full engine configuration
+    GetConfig,
+    /// Get the plugin-specific configuration (`$env.config.plugins.NAME`)
+    GetPluginConfig,
+    /// Get an environment variable
+    GetEnvVar(String),
+    /// Get all environment variables
+    GetEnvVars,
+    /// Get current working directory
+    GetCurrentDir,
+    /// Evaluate a closure with stream input/output
+    EvalClosure {
+        /// The closure to call.
+        ///
+        /// This may come from a [`Value::Closure`] passed in as an argument to the plugin.
+        closure: Spanned<Closure>,
+        /// Positional arguments to add to the closure call
+        positional: Vec<Value>,
+        /// Input to the closure
+        input: D,
+        /// Whether to redirect stdout from external commands
+        redirect_stdout: bool,
+        /// Whether to redirect stderr from external commands
+        redirect_stderr: bool,
+    },
+}
+
+impl<D> EngineCall<D> {
+    /// Get the name of the engine call so it can be embedded in things like error messages
+    pub fn name(&self) -> &'static str {
+        match self {
+            EngineCall::GetConfig => "GetConfig",
+            EngineCall::GetPluginConfig => "GetPluginConfig",
+            EngineCall::GetEnvVar(_) => "GetEnv",
+            EngineCall::GetEnvVars => "GetEnvs",
+            EngineCall::GetCurrentDir => "GetCurrentDir",
+            EngineCall::EvalClosure { .. } => "EvalClosure",
+        }
+    }
+}
+
+/// The response to an [EngineCall]. The type parameter determines the output type for pipeline
+/// data.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum EngineCallResponse<D> {
+    Error(ShellError),
+    PipelineData(D),
+    Config(Box<Config>),
+    ValueMap(HashMap<String, Value>),
+}
+
+impl EngineCallResponse<PipelineData> {
+    /// Build an [`EngineCallResponse::PipelineData`] from a [`Value`]
+    pub(crate) fn value(value: Value) -> EngineCallResponse<PipelineData> {
+        EngineCallResponse::PipelineData(PipelineData::Value(value, None))
+    }
+
+    /// An [`EngineCallResponse::PipelineData`] with [`PipelineData::Empty`]
+    pub(crate) const fn empty() -> EngineCallResponse<PipelineData> {
+        EngineCallResponse::PipelineData(PipelineData::Empty)
     }
 }
